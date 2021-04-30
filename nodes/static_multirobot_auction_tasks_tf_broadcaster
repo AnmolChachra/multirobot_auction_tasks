@@ -18,7 +18,8 @@ if __name__ == '__main__':
             print 'Your static robot name cannot be "world"'
             sys.exit(0)
 
-        rospy.init_node('my_static_tf2_broadcaster')
+
+        rospy.init_node('static_multirobot_auction_tasks_tf_broadcaster')
         broadcaster = tf2_ros.StaticTransformBroadcaster()
         static_transformStamped = geometry_msgs.msg.TransformStamped()
 
@@ -39,4 +40,8 @@ if __name__ == '__main__':
 
         broadcaster.sendTransform(static_transformStamped)
 
+        print "==================================="
+        print "Boradcaster is Running Successfully"
+        print "==================================="
+        
         rospy.spin()

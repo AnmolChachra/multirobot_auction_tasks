@@ -39,7 +39,7 @@ DEFAULT_INIT_COORDINATION_TOPIC = 'init_coordinate'
 # subscriber constants
 DEFAULT_ODOM_TOPIC = 'odom'
 
-class Leader:
+class Auctioneer:
 	def __init__(self, n=N, linear_velocity=LINEAR_VELOCITY, angular_velocity=ANGULAR_VELOCITY):
 		""" Constructor """
 		self.n = n # number of robots in the world
@@ -341,22 +341,6 @@ class Leader:
 		else:
 			return RegistrationServiceResponse(False)
 
-	# def publish_all_waypoints(self, positions, orientations):
-	# 	""" This publishes the waypoints as Path message """
-	# 	path_msg = Path()
-	# 	pose_msg = Pose()
-
-	# 	for i in range(self.n):
-	# 		pose = positions[i]
-	# 		orient = orientation[i]
-
-	# 		pose_msg.position.x, pose_msg.position.y, pose_msg.position.z = pose
-	# 		pose_msg.orientation.x, pose_msg.orientation.y, pose_msg.orientation.z, pose_msg.orientation.w = orient
-			
-	# 		path_msg.poses.append(pose_msg)
-
-	# 	self._waypoints.publish(path_msg)
-
 	def stop(self):
 		""" Stop the robot """
 		twist_msg = Twist()
@@ -375,31 +359,23 @@ class Leader:
 def main():
 
 	# Initialization of node
-	rospy.init_node("leader")
+	rospy.init_node("auctioneer")
 
 	# Sleep for couple of seconds to wait for the registration
 	rospy.sleep(5)
 
-	# Publish the initial position of the robot
-	# robotname = str(rospy.get_namespace())
-	# stage_pose = PoseWithCovarianceStamped()
-	# initpose_pub = rospy.Publisher(DEFAULT_INIT_POSE_TOPIC % robotname, PoseWithCovarianceStamped, queue_size=1)
-	# stage_pose.pose.position.x, stage_pose.pose.position.y, stage_pose.pose.position.z = (px, py, pz)
-	# stage_pose.pose.orientation.x, stage_pose.pose.orientation.y, stage_pose.pose.orientation.z, stage_pose.pose.orientation.w = (ox, oy, oz, ow)
-	# initpose_pub.publish(stage_pose)
-
 	# Instance of Leader class
-	leader_obj = Leader()
+	auctioneer_obj = Auctioneer()
 
 	# Publish to make followers known that leader has set the waypoints and is now accepting collab
-	leader_obj.set_waypoints()
-	leader_obj.publish_init_coordinate(True)
+	auctioneer_obj.set_waypoints()
+	auctioneer_obj.publish_init_coordinate(True)
 
 	# Instance of the service
-	service = rospy.Service('registration_service', RegistrationService, leader_obj.register_followers)
+	service = rospy.Service('registration_service', RegistrationService, auctioneer_obj.register_followers)
 
 	# If interrupted, send a stop command
-	rospy.on_shutdown(leader_obj.stop)
+	rospy.on_shutdown(auctioneer_obj.stop)
 
 	try:
 		rospy.spin()
@@ -408,5 +384,5 @@ def main():
 
 
 if __name__ == "__main__":
-	roslib.load_manifest('multirobot_shapes')
+	roslib.load_manifest('multirobot_auction_tasks')
 	main()

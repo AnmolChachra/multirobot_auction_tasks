@@ -20,7 +20,7 @@ def handle_robot_pose(msg, robotname):
 
 def main():
 	robotname = rospy.get_param('robot', '')
-	rospy.init_node('multirobot_shapes_tf_broadcaster')
+	rospy.init_node('multirobot_auction_tasks_tf_broadcaster')
 	rospy.Subscriber(DEFAULT_POSE_SUB % robotname,
 					 PoseWithCovarianceStamped,
 					 handle_robot_pose,

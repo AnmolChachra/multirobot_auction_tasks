@@ -50,9 +50,9 @@
     
     <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model $(arg first_tb3) -x $(arg first_tb3_x_pos) -y $(arg first_tb3_y_pos) -z $(arg first_tb3_z_pos) -Y $(arg first_tb3_yaw) -param robot_description" />
 
-    <node name="static_multirobot_shapes_tf_broadcaster" pkg="multirobot_shapes" type="static_multirobot_shapes_tf_broadcaster" output="screen" args="$(arg first_tb3) $(arg first_tb3_x_pos) $(arg first_tb3_y_pos) $(arg first_tb3_z_pos) $(arg first_tb3_x_orient) $(arg first_tb3_y_orient) $(arg first_tb3_z_orient)"/>
+    <node name="static_multirobot_auction_tasks_tf_broadcaster" pkg="multirobot_auction_tasks" type="static_multirobot_auction_tasks_tf_broadcaster" output="screen" args="$(arg first_tb3) $(arg first_tb3_x_pos) $(arg first_tb3_y_pos) $(arg first_tb3_z_pos) $(arg first_tb3_x_orient) $(arg first_tb3_y_orient) $(arg first_tb3_z_orient)"/>
 
-    <node name="leader" pkg="multirobot_shapes" type="leader" output="screen" />
+    <node name="auctioneer" pkg="multirobot_auction_tasks" type="auctioneer" output="screen" />
 
   </group>
 
@@ -66,9 +66,9 @@
     
     <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model $(arg second_tb3) -x $(arg second_tb3_x_pos) -y $(arg second_tb3_y_pos) -z $(arg second_tb3_z_pos) -Y $(arg second_tb3_yaw) -param robot_description" />
 
-    <node name="static_multirobot_shapes_tf_broadcaster" pkg="multirobot_shapes" type="static_multirobot_shapes_tf_broadcaster" output="screen" args="$(arg second_tb3) $(arg second_tb3_x_pos) $(arg second_tb3_y_pos) $(arg second_tb3_z_pos) $(arg second_tb3_x_orient) $(arg second_tb3_y_orient) $(arg second_tb3_z_orient)"/>
+    <node name="static_multirobot_auction_tasks_tf_broadcaster" pkg="multirobot_auction_tasks" type="static_multirobot_auction_tasks_tf_broadcaster" output="screen" args="$(arg second_tb3) $(arg second_tb3_x_pos) $(arg second_tb3_y_pos) $(arg second_tb3_z_pos) $(arg second_tb3_x_orient) $(arg second_tb3_y_orient) $(arg second_tb3_z_orient)"/>
 
-    <node name="follower" pkg="multirobot_shapes" type="follower" output="screen" />
+    <node name="auctionee" pkg="multirobot_auction_tasks" type="auctionee" output="screen" />
 
   </group>
 
@@ -82,9 +82,9 @@
     
     <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model $(arg third_tb3) -x $(arg third_tb3_x_pos) -y $(arg third_tb3_y_pos) -z $(arg third_tb3_z_pos) -Y $(arg third_tb3_yaw) -param robot_description" />
 
-    <node name="static_multirobot_shapes_tf_broadcaster" pkg="multirobot_shapes" type="static_multirobot_shapes_tf_broadcaster" output="screen" args="$(arg third_tb3) $(arg third_tb3_x_pos) $(arg third_tb3_y_pos) $(arg third_tb3_z_pos) $(arg third_tb3_x_orient) $(arg third_tb3_y_orient) $(arg third_tb3_z_orient)"/>
+    <node name="static_multirobot_auction_tasks_tf_broadcaster" pkg="multirobot_auction_tasks" type="static_multirobot_auction_tasks_tf_broadcaster" output="screen" args="$(arg third_tb3) $(arg third_tb3_x_pos) $(arg third_tb3_y_pos) $(arg third_tb3_z_pos) $(arg third_tb3_x_orient) $(arg third_tb3_y_orient) $(arg third_tb3_z_orient)"/>
 
-    <node name="follower" pkg="multirobot_shapes" type="follower" output="screen" />
+    <node name="auctionee" pkg="multirobot_auction_tasks" type="auctionee" output="screen" />
 
   </group>
 

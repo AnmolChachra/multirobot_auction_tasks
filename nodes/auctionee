@@ -17,7 +17,7 @@ FREQUENCY = 5 # Hz
 LINEAR_VELOCITY = 0.2 # m/s
 ANGULAR_VELOCITY = math.pi / 6 # rad/s
 
-LEADER_ROBOT_NAME = 'robot_0'
+AUCTIONEER_ROBOT_NAME = 'robot_0'
 
 N = 3 # number of robots spawned = number of waypoints
 SIDE_LEN = 5 # meters - distance between each waypoint
@@ -34,7 +34,7 @@ DEFAULT_SCAN_TOPIC = 'scan'
 # subscriber constants
 DEFAULT_INIT_COORDINATE_TOPIC = '/%s/init_coordinate'
 
-class Follower:
+class Auctionee:
 	def __init__(self, n=N, linear_velocity=LINEAR_VELOCITY, angular_velocity=ANGULAR_VELOCITY):
 		""" Constructor """
 		self.n = n
@@ -48,12 +48,12 @@ class Follower:
 
 		# Setting up subscriber
 		self._laser_sub = rospy.Subscriber(DEFAULT_SCAN_TOPIC, LaserScan, self._laser_callback, queue_size=1)
-		self._init_coordinate_sub = rospy.Subscriber(DEFAULT_INIT_COORDINATE_TOPIC % LEADER_ROBOT_NAME, Bool, self._init_coordinate_callback, queue_size=1)
+		self._init_coordinate_sub = rospy.Subscriber(DEFAULT_INIT_COORDINATE_TOPIC % AUCTIONEER_ROBOT_NAME, Bool, self._init_coordinate_callback, queue_size=1)
 
 		#other variables
 		self.init_coordinate = False
 
-		# Setting up follower's action server
+		# Setting up auctionee's action server
 		self.action_server = actionlib.SimpleActionServer('go_there', GoThereAction, self.execute, False)
 		self.action_server.start()
 
@@ -135,7 +135,7 @@ class Follower:
 		self._cmd_pub.publish(twist_msg)
 
 	def _init_coordinate_callback(self, msg):
-		""" Processing of msg from the leader whch will be a boolean """
+		""" Processing of msg from the auctioneer whch will be a boolean """
 		if msg.data == True:
 			self.init_coordinate = True
 		else:
@@ -153,7 +153,7 @@ class Follower:
 
 def main():
 	# Initialization of node
-	rospy.init_node("follower")
+	rospy.init_node("auctionee")
 
 	# Sleep for couple of seconds to wait for the registration
 	rospy.sleep(5)
@@ -162,26 +162,19 @@ def main():
 	robotname = str(rospy.get_namespace())
 
 	# Instance of Leader class
-	follower_obj = Follower()
+	auctionee_obj = Auctionee()
 
-	# Publish the initial position of the robot
-	# stage_pose = PoseWithCovarianceStamped()
-	# initpose_sub = rospy.Publisher(DEFAULT_INIT_POSE_TOPIC % robotname, PoseWithCovarianceStamped, queue_size=1)
-	# stage_pose.pose.position.x, stage_pose.pose.position.y, stage_pose.pose.position.z = (px, py, pz)
-	# stage_pose.pose.orientation.x, stage_pose.pose.orientation.y, stage_pose.pose.orientation.z, stage_pose.pose.orientation.w = (ox, oy, oz, ow)
-	# initpose_sub.publish(stage_pose)
-
-	# infinte loop until follower gets message from the leader that its ready for the registration process
-	while not follower_obj.init_coordinate:
+	# infinte loop until auctionee gets message from the auctioneer that its ready for the registration process
+	while not auctionee_obj.init_coordinate:
 		continue
 
-	# Call the service to register itself with the leader
-	rospy.wait_for_service("/%s/registration_service" % LEADER_ROBOT_NAME)
-	srv = rospy.ServiceProxy('/%s/registration_service' % LEADER_ROBOT_NAME, RegistrationService)
+	# Call the service to register itself with the auctioneer
+	rospy.wait_for_service("/%s/registration_service" % AUCTIONEER_ROBOT_NAME)
+	srv = rospy.ServiceProxy('/%s/registration_service' % AUCTIONEER_ROBOT_NAME, RegistrationService)
 	_ = srv(robotname)
 
 	# If interrupted, send a stop command
-	rospy.on_shutdown(follower_obj.stop)
+	rospy.on_shutdown(auctionee_obj.stop)
 
 	try:
 		rospy.spin()

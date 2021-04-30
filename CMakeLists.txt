@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(multirobot_shapes)
+project(multirobot_auction_tasks)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -112,7 +112,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES multirobot_shapes
+#  LIBRARIES multirobot_auction_tasks
   CATKIN_DEPENDS
     rospy
     geometry_msgs
@@ -133,7 +133,7 @@ include_directories(
 )
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/multirobot_shapes.cpp
+#   src/${PROJECT_NAME}/multirobot_auction_tasks.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -144,7 +144,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/multirobot_shapes_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/multirobot_auction_tasks_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -208,7 +208,7 @@ include_directories(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_multirobot_shapes.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_multirobot_auction_tasks.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
