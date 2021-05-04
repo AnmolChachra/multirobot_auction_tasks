@@ -1,0 +1,4 @@
+float32[] bids
+string robotname
+---
+bool accepted
