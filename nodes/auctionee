@@ -6,12 +6,15 @@ import math
 import rospy # module for ROS APIs
 import actionlib
 
+from collections import deque
+
 from geometry_msgs.msg import Twist # message type for cmd_vel
 from std_msgs.msg import Bool # message to initiate the coordination - True for yes and False for no
 from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Path # message to receive waypoints from the auctioneer
 
-from multirobot_shapes.srv import RegistrationService, RegistrationServiceResponse
-from multirobot_shapes.msg import GoThereAction
+from multirobot_auction_tasks.srv import BiddingService, BiddingServiceResponse
+from multirobot_auction_tasks.msg import TaskAllocatedAction
 
 FREQUENCY = 5 # Hz
 LINEAR_VELOCITY = 0.2 # m/s
@@ -20,19 +23,22 @@ ANGULAR_VELOCITY = math.pi / 6 # rad/s
 AUCTIONEER_ROBOT_NAME = 'robot_0'
 
 N = 3 # number of robots spawned = number of waypoints
-SIDE_LEN = 5 # meters - distance between each waypoint
-INIT_POSE = (0.0, 0.0, 0.0) # init pose for the shape
-INIT_ORIENT = (0.0, 0.0, 0.0, 0.0) # init orientation for the shape in quaternion
 
 LASER_ANGLE_FRONT = 0
 MIN_THRESHOLD_DISTANCE = 0.6
 
 # publisher constants
 DEFAULT_CMD_VEL_TOPIC = 'cmd_vel'
-DEFAULT_SCAN_TOPIC = 'scan'
 
 # subscriber constants
-DEFAULT_INIT_COORDINATE_TOPIC = '/%s/init_coordinate'
+DEFAULT_SCAN_TOPIC = 'scan'
+DEFAULT_WAYPOINTS_TOPIC = '/%s/waypoints'
+DEFAULT_END_ROUND_TOPIC = '/%s/end_round'
+
+# logging constants
+BREAK_LINE = "===================================================================================================="
+PROCESSING_LINES = ".\n.\n."
+TAB_IT = "\t"
 
 class Auctionee:
 	def __init__(self, n=N, linear_velocity=LINEAR_VELOCITY, angular_velocity=ANGULAR_VELOCITY):
@@ -43,19 +49,34 @@ class Auctionee:
 		self.angular_velocity = angular_velocity
 		self.rate = rospy.Rate(FREQUENCY)
 
-		# Setting up publishers/subscribers
+		# Setting up publishers
 		self._cmd_pub = rospy.Publisher(DEFAULT_CMD_VEL_TOPIC, Twist, queue_size=1)
 
-		# Setting up subscriber
+		# Setting up subscribers
 		self._laser_sub = rospy.Subscriber(DEFAULT_SCAN_TOPIC, LaserScan, self._laser_callback, queue_size=1)
-		self._init_coordinate_sub = rospy.Subscriber(DEFAULT_INIT_COORDINATE_TOPIC % AUCTIONEER_ROBOT_NAME, Bool, self._init_coordinate_callback, queue_size=1)
+		self._waypoints_sub = rospy.Subscriber(DEFAULT_WAYPOINTS_TOPIC % AUCTIONEER_ROBOT_NAME, Path, self._waypoints_callback)
+		self._end_round_sub = rospy.Subscriber(DEFAULT_END_ROUND_TOPIC % AUCTIONEER_ROBOT_NAME, Bool, self._end_round_callback)
 
 		#other variables
-		self.init_coordinate = False
+		self.end_round = False # to be set by the '_end_round_sub' subscriber
+		self.waypoints_positions = [] # to be set by the '_waypoints_sub' subscriber
+		self.waypoints_orientations = [] # to be set by the '_waypoints_sub' subscriber
+		self.round_number = 1 # This will be incremented whenever a round successfully completes
+		self.assigned_tasks = deque() # queue of tasks - queue of tuples where tuple has 2 values
+									  # value 1 is start position/orientation, value 2 is end position of that task
+
+		# Instantiate the tf listener
+		self.listener = tf.TransformListener()
 
 		# Setting up auctionee's action server
-		self.action_server = actionlib.SimpleActionServer('go_there', GoThereAction, self.execute, False)
+		self.action_server = actionlib.SimpleActionServer('task_allocation_server', TaskAllocatedAction, self.handle_task, False)
 		self.action_server.start()
+
+	
+	def stop(self):
+		""" Stop the robot """
+		twist_msg = Twist()
+		self._cmd_pub.publish(twist_msg)
 
 	def rotate_in_place(self, rotation_angle):
 		"""
@@ -82,7 +103,6 @@ class Auctionee:
 
 		# Rotated the required angle, stop.
 		self.stop()
-
 
 	def move_forward(self, distance):
 		"""Function to move_forward for a given distance."""
@@ -121,25 +141,169 @@ class Auctionee:
 		# Traveled the required distance, stop.
 		self.stop()
 
-	def execute(self, goal):
-		# print "I am %s and Goal I received is" % self.robot_name, goal
+	def execute_task(self, task):
+		task_start_pose, task_start_orient = task[0]
+		task_end_pose, task_end_orient = task[1]
 
-		self.rotate_in_place(goal.angle)
-		self.move_forward(goal.dist)
+
+		roll, pitch, yaw = tf.transformations.euler_from_quaternion(task_start_orient)
+
+
+		dist = ((task_start_pose[0] - task_end_pose[0])**2 + (task_start_pose[1] - task_end_pose[1])**2)**0.5
+
+		angle =  math.atan2(task_end_pose[1] - task_start_pose[1], task_end_pose[0] - task_start_pose[0]) - yaw
+
+		print TAB_IT, "Robot %s is moving to"%self.robot_name, task_end_pose
+
+		self.rotate_in_place(angle)
+		self.move_forward(dist)
+
+		self.position = task_end_pose
+		self.orientation = tf.transformations.quaternion_from_euler(roll, pitch, angle)
+
+	def handle_task(self, goal):
+		print PROCESSING_LINES
+		print "Goal received by <<<<%s>>>> is" % self.robot_name, goal, ". Setting goal/task"
+		print PROCESSING_LINES
+
+		task_to_execute = goal.task_num
+
+		task_position = self.waypoints_positions[task_to_execute]
+		task_orientation = self.waypoints_orientations[task_to_execute]
+
+		self.assigned_tasks.append(((self.position, self.orientation), (task_position, task_orientation)))
 
 		self.action_server.set_succeeded()
 
-	def stop(self):
-		""" Stop the robot """
-		twist_msg = Twist()
-		self._cmd_pub.publish(twist_msg)
+		print PROCESSING_LINES
+		print "Successfully set up goal"
 
-	def _init_coordinate_callback(self, msg):
-		""" Processing of msg from the auctioneer whch will be a boolean """
-		if msg.data == True:
-			self.init_coordinate = True
-		else:
-			self.init_coordinate = False
+	def enter_round(self):
+		# At every round of the auction update the position of the robot based on the tas
+		odom_frame = self.robot_name + 'odom'
+		parent_ref_frame = 'world'
+		trans, rot = self.get_tf_from_listener(parent_ref_frame, odom_frame)
+
+		# connect to the BiddingService offered by the auctioneer
+		rospy.wait_for_service("/%s/bidding_service" % AUCTIONEER_ROBOT_NAME)
+		srv = rospy.ServiceProxy("/%s/bidding_service" % AUCTIONEER_ROBOT_NAME, BiddingService)
+		accepted = srv(bids, self.robot_name)
+
+		# keep sending the bids until auctioneer acknowledges
+		# keep a counter to limit the number of requests made
+		# to prevent server from getting overloaded
+		request_counter = 0
+		while not accepted:
+			print "Request not accepted for",self.robot_name, "\nRetrying.."
+			if request_counter == 5:
+				break
+			accepted = srv(bids, self.robot_name)
+			request_counter += 1
+			time.sleep(5)
+
+	def enter_auction(self):
+		
+		# number of rounds will be the same as the number of tasks
+		print BREAK_LINE
+		print "%s Entered Auction" % self.robot_name
+		print PROCESSING_LINES
+
+		num_rounds = len(self.waypoints_positions)
+		for i in range(num_rounds):
+
+			print "\nRound {0}......".format(i+1)
+
+			# calculate the bids to all the waypoints from the current robot position
+			# if the robot is already at or vey close to a waypoint,
+			# it implies that the robot has done that task so while sending the bid
+			# change its value to positive infinity or MAX_VAL
+			# This will prevent auctioneer to reconsider that bid,
+			# even if the auctioneer logic fails to prevent duplicated allotment
+			bids = []
+			for pose in self.waypoints_positions:
+				dist = ((pose[0] - self.position[0])**2 + (pose[1] - self.position[1])**2)**0.5
+				bids.append(dist)
+
+			# connect to the BiddingService offered by the auctioneer
+			rospy.wait_for_service("/%s/bidding_service" % AUCTIONEER_ROBOT_NAME)
+			srv = rospy.ServiceProxy("/%s/bidding_service" % AUCTIONEER_ROBOT_NAME, BiddingService)
+			accepted = srv(bids, self.robot_name)
+
+			# keep sending the bids until auctioneer acknowledges
+			# keep a counter to limit the number of requests made
+			# to prevent server from getting overloaded
+			request_counter = 0
+			while not accepted:
+				print "Request not accepted for",self.robot_name, "\nRetrying.."
+				if request_counter == 5:
+					break
+				accepted = srv(bids, self.robot_name)
+				request_counter += 1
+				time.sleep(5)
+
+			while not self.end_round:
+				continue
+
+			self.end_round = False
+			time.sleep(2)
+
+		while len(self.assigned_tasks):
+			print "\nExecuting task.."
+			task = self.assigned_tasks.popleft()
+			self.execute_task(task)
+			print "Done"
+
+		print PROCESSING_LINES
+		print "Auction is now finished"
+		print BREAK_LINE
+
+
+	def get_tf_from_listener(self, parent_ref_frame, child_ref_frame):
+		"""
+		Get transformation from listener using 'listener' instance
+		"""
+		trans = (0, 0, 0)
+		rot = (0, 0, 0, 0)
+		try:
+			trans, rot = self.listener.lookupTransform(parent_ref_frame, child_ref_frame, rospy.Time(0))
+
+		except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+			print "Exception has occured", repr(e)
+			pass
+		return trans, rot
+
+	def set_position_orientation(self, position, orientation):
+		self.position = position
+		self.orientation = orientation
+
+	def get_position_orientation(self):
+		print BREAK_LINE
+		print "Setting up position and orientation for <<<%s>>> from tf listener" % self.robot_name
+		print PROCESSING_LINES
+
+		auctionee_odom_frame = self.robot_name + 'odom'
+		position, orientation = self.get_tf_from_listener('world', auctionee_odom_frame)
+		
+		print PROCESSING_LINES
+		print "Successfully set up position and orientation"
+		print BREAK_LINE
+
+		return position, orientation
+
+	def _waypoints_callback(self, msg):
+		# print "Waypoint received", msg
+		# print "Length of array in msg", len(msg.poses)
+		if len(msg.poses) > 0:
+			for pose in msg.poses:
+				# print "Pose in loop", pose
+				self.waypoints_positions.append((pose.pose.position.x, pose.pose.position.y, pose.pose.position.z))
+				self.waypoints_orientations.append((pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w))
+
+	def _end_round_callback(self, msg):
+		""" Callback for _end_round_sub Subscriber
+			Sets end_round to the value received from the auctioneer
+		"""
+		self.end_round = msg.data
 
 	def _laser_callback(self, msg):
 		"""Processing of laser message."""
@@ -164,14 +328,19 @@ def main():
 	# Instance of Leader class
 	auctionee_obj = Auctionee()
 
-	# infinte loop until auctionee gets message from the auctioneer that its ready for the registration process
-	while not auctionee_obj.init_coordinate:
+	# Sleep for few seconds while other nodes get initialized and ready to listen to published messages
+	rospy.sleep(5)
+
+	# Set the position and orientation for auctionee since the node is now up and running
+	position, orientation = auctionee_obj.get_position_orientation()
+	auctionee_obj.set_position_orientation(position, orientation)
+
+	while not len(auctionee_obj.waypoints_positions):
 		continue
 
-	# Call the service to register itself with the auctioneer
-	rospy.wait_for_service("/%s/registration_service" % AUCTIONEER_ROBOT_NAME)
-	srv = rospy.ServiceProxy('/%s/registration_service' % AUCTIONEER_ROBOT_NAME, RegistrationService)
-	_ = srv(robotname)
+	# initiate auction process
+	# when round 1 begins, it also marks the start of the auction
+	auctionee_obj.enter_auction()
 
 	# If interrupted, send a stop command
 	rospy.on_shutdown(auctionee_obj.stop)
