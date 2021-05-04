@@ -1,0 +1,8 @@
+# Define the goal
+int32 task_num # waypoint/task number where robot needs to move
+---
+# Define the result
+float32 error # error [target - actual]
+---
+# Define a feedback message
+float32 distance # Distance from the goal
